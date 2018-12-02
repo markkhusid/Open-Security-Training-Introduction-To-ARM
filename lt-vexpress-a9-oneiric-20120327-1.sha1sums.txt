@@ -1,0 +1,2 @@
+a64c16e9ae4df8aba6860b5ad800363d3f7a2139  hwpack_linaro-lt-vexpress-a9_20120327-1_armel_supported.tar.gz
+d860c7c1e9ebce74e22b5e5f33a9d07694eac38d  hwpack_linaro-lt-vexpress-a9_20120327-1_armel_supported.manifest.txt
