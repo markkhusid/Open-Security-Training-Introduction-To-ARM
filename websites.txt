@@ -1,0 +1,10 @@
+ 
+https://www.surrendercontrol.com/2013/06/how-to-set-up-arm-vm-for-open-security.html
+
+https://wiki.linaro.org/PeterMaydell/QemuVersatileExpress#Creating_Linaro_Versatile_Express_images_for_qemu-linaro
+
+http://releases.linaro.org/archive/12.03/ubuntu/oneiric-images/nano/
+
+https://github.com/markkhusid/Open-Security-Training-Introduction-To-ARM
+
+https://archive.org/details/Day1Part1ReverseEngineeringMalware
