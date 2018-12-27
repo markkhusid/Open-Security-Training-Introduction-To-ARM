@@ -1,0 +1,166 @@
+**********************************************************************************
+Working from https://translatedcode.wordpress.com/2016/11/03/installing-debian-on-qemus-32-bit-arm-virt-board/
+
+wget -O installer-vmlinuz http://http.us.debian.org/debian/dists/jessie/main/installer-armhf/current/images/netboot/vmlinuz
+
+wget -O installer-initrd.gz http://http.us.debian.org/debian/dists/jessie/main/installer-armhf/current/images/netboot/initrd.gz
+
+qemu-img create -f qcow2 hda.qcow2 5G
+
+qemu-system-arm -M virt -m 1024 \
+  -kernel installer-vmlinuz \
+  -initrd installer-initrd.gz \
+  -drive if=none,file=hda.qcow2,format=qcow2,id=hd \
+  -device virtio-blk-device,drive=hd \
+  -netdev user,id=mynet \
+  -device virtio-net-device,netdev=mynet \
+  -nographic -no-reboot
+
+This command starts the VM but it does not have any network access running inside a VM, maybe I need to start a DHCP server inside the VM, or manually give an IP address to the QEMU VM.
+
+Need to try:
+On the host:
+
+# ip link add br0 type bridge
+
+# ip addr flush dev eth0
+
+# ip link set eth0 master br0
+
+and I add this to the qemu command line
+
+-netdev bridge,id=hn0
+-device virtio-net-device,netdev=hn0,id=nic1
+
+# iptables -A INPUT -i tap0 -j ACCEPT
+# iptables -A INPUT -i br0 -j ACCEPT
+# iptables -A FORWARD -i br0 -j ACCEPT
+
+Trying this instead:
+
+qemu-system-arm -M virt -m 1024 \
+  -kernel installer-vmlinuz \
+  -initrd installer-initrd.gz \
+  -drive if=none,file=hda.qcow2,format=qcow2,id=hd \
+  -device virtio-blk-device,drive=hd \
+  -netdev user,id=mynet,net=10.0.2.0,dhcpstart=10.0.2.100 \
+  -device virtio-net-device,netdev=mynet \
+  -nographic -no-reboot
+
+Didn't work any better.  Still can not download upgrades from Debian mirrors.
+
+went to shell and executed:
+
+# ip addr show
+~ # ip addr show
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue 
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host 
+       valid_lft forever preferred_lft forever
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast qlen 1000
+    link/ether 52:54:00:12:34:56 brd ff:ff:ff:ff:ff:ff
+    inet 10.0.2.100/8 scope global eth0
+       valid_lft forever preferred_lft forever
+    inet6 fec0::5054:ff:fe12:3456/64 scope site dynamic 
+       valid_lft 85972sec preferred_lft 13972sec
+    inet6 fe80::5054:ff:fe12:3456/64 scope link 
+       valid_lft forever preferred_lft forever
+
+There seems to be an eth0 with a valid IP but wrong netmask.  looked at routing table:
+~ # ip route show
+default via 10.0.2.2 dev eth0 
+10.0.0.0/8 dev eth0  src 10.0.2.100 
+~ # 
+
+Route seems fine but wrong netmask.  Net a netmask of /24 rather than /8.
+
+Tried to save logs:
+┌───────────────────────┤ [!!] Save debug logs ├────────────────────────┐
+   │                                                                       │
+   │                          Web server started                           │
+   │ A simple web server has been started on this computer to serve log    │
+   │ files and debug info. An index of all the available log files can be  │
+   │ found at http://10.0.2.100/                                           │
+   │                                                                       │
+   │                              <Continue>                               │
+   │                                                                       │
+   └───────────────────────────────────────────────────────────────────────┘
+
+
+
+GET 10.0.2.100 didn't work.
+
+Tried to ping guest:
+PING 10.0.2.100 (10.0.2.100) 56(84) bytes of data.
+From 10.0.2.15 icmp_seq=1 Destination Host Unreachable
+From 10.0.2.15 icmp_seq=2 Destination Host Unreachable
+From 10.0.2.15 icmp_seq=3 Destination Host Unreachable
+From 10.0.2.15 icmp_seq=4 Destination Host Unreachable
+From 10.0.2.15 icmp_seq=5 Destination Host Unreachable
+From 10.0.2.15 icmp_seq=6 Destination Host Unreachable
+^C
+--- 10.0.2.100 ping statistics ---
+7 packets transmitted, 0 received, +6 errors, 100% packet loss, time 91ms
+The fact that it said Destination Host Unreachable means that it is seen but there is something not quite right with the network configuration on the guest.  I suspect it is the netmask setting.
+
+
+
+
+
+************************************************************************************
+<The below failed.....>
+
+sudo apt-get install linaro-image-tools
+
+sudo apt-get install qemu-user-static
+
+sudo apt-get install qemu-system
+
+sudo apt-get install gcc-arm-linux-gnueabi
+
+sudo apt-get install debootstrap
+
+sudo qemu-debootstrap --arch=armhf xenial qemu-img/
+
+<wait a long time>
+
+sudo cp `which qemu-arm-static` qemu-img/usr/bin/
+
+sudo chroot qemu-img
+
+sed 's/tty1/ttyAMA0/g' /etc/init/tty1.conf > /etc/init/ttyAMA0.conf
+< doesn't work.  tty1.conf does not exist, but ttyAMA0.conf is already present. >
+
+echo "deb  http://ftp.us.debian.org/debian jessie contrib main non-free" > /etc/apt/sources.list
+
+apt-get update
+
+echo -e "\nauto eth0\niface eth0 inet dhcp" >> /etc/network/interfaces
+
+passwd
+<toor>
+
+apt-get install wget ca-certificates
+
+wget https://launchpad.net/ubuntu/+archive/primary/+files/linux-image-4.18.0-11-generic_4.18.0-11.12_armhf.deb
+
+<linux-image-4.18.0-10-generic-lpae>
+
+dpkg -i linux-image-4.18.0-11-generic_4.18.0-11.12_armhf.deb
+
+Ctrl+D
+<chroot exits>
+
+Failed next steps
+Next try is above this section
+
+************************************************************************************************************************
+
+
+
+
+
+
+
